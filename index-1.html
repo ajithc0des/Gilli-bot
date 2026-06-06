@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover"/>
+<title>OSINT Premium</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+:root{
+  --bg:#04050f;
+  --card:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.08);
+  --gold:#f0c040;--gold2:#c88a18;--gold-g:rgba(240,192,64,0.25);
+  --cyan:#00d4ff;--purple:#a855f7;--green:#00ff88;--red:#ff3355;
+  --text:#eef0ff;--muted:rgba(238,240,255,0.45);
+  --r:18px;
+}
+html{height:100%;overflow:hidden}
+body{
+  height:100%;background:var(--bg);color:var(--text);
+  font-family:'Space Grotesk',sans-serif;
+  overflow:hidden;position:fixed;inset:0;
+}
+
+/* ── MESH BG ── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 55% at 5% 5%,rgba(168,85,247,.12) 0%,transparent 55%),
+    radial-gradient(ellipse 65% 50% at 95% 95%,rgba(0,212,255,.09) 0%,transparent 50%),
+    radial-gradient(ellipse 45% 35% at 50% 50%,rgba(240,192,64,.04) 0%,transparent 55%);
+}
+
+/* ── PAGES ── */
+.page{
+  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  display:none;flex-direction:column;
+  z-index:1;
+  padding-bottom:env(safe-area-inset-bottom,20px);
+}
+.page.active{display:flex}
+.page-enter{animation:pgIn .32s cubic-bezier(.4,0,.2,1) both}
+.page-exit{animation:pgOut .25s cubic-bezier(.4,0,.2,1) both}
+@keyframes pgIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes pgOut{from{transform:translateX(0);opacity:1}to{transform:translateX(-30%);opacity:0}}
+.page-enter-back{animation:pgInBack .32s cubic-bezier(.4,0,.2,1) both}
+@keyframes pgInBack{from{transform:translateX(-30%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* ── TOPBAR ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 16px 10px;
+  padding-top:calc(16px + env(safe-area-inset-top,0px));
+  flex-shrink:0;position:sticky;top:0;
+  background:linear-gradient(to bottom,rgba(4,5,15,.97) 80%,transparent);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  z-index:10;
+}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.tb-back{
+  width:36px;height:36px;border-radius:10px;
+  background:rgba(255,255,255,.07);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;cursor:pointer;flex-shrink:0;
+  transition:background .15s,transform .1s;
+}
+.tb-back:active{transform:scale(.88);background:rgba(255,255,255,.13)}
+.tb-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;letter-spacing:.3px}
+.menu-btn{
+  width:36px;height:36px;border-radius:10px;
+  background:rgba(255,255,255,.07);border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  cursor:pointer;flex-shrink:0;
+  transition:background .15s,transform .1s;
+}
+.menu-btn:active{transform:scale(.88)}
+.menu-btn span{width:16px;height:1.5px;background:var(--muted);border-radius:2px;display:block}
+
+/* support FAB */
+.support-fab{
+  position:fixed;bottom:24px;right:16px;z-index:50;
+  width:48px;height:48px;border-radius:50%;
+  background:linear-gradient(135deg,var(--cyan),#0099bb);
+  box-shadow:0 4px 20px rgba(0,212,255,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;cursor:pointer;text-decoration:none;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+}
+.support-fab:active{transform:scale(.88);box-shadow:0 2px 10px rgba(0,212,255,.2)}
+
+/* ── SCROLL INNER ── */
+.scroll-inner{flex:1;padding:0 14px 32px}
+
+/* ── SKELETON ── */
+.sk{
+  background:rgba(255,255,255,.06);border-radius:10px;
+  position:relative;overflow:hidden;
+}
+.sk::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.07) 50%,transparent 100%);
+  background-size:200% 100%;
+  animation:skShimmer 1.4s ease-in-out infinite;
+}
+@keyframes skShimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.sk-card{height:110px;border-radius:var(--r);margin-bottom:10px}
+.sk-hero{height:160px;border-radius:var(--r);margin-bottom:20px}
+.sk-text{height:14px;border-radius:6px;margin-bottom:8px}
+.sk-text.w60{width:60%}
+.sk-text.w80{width:80%}
+
+/* ── HERO ── */
+.hero{text-align:center;padding:28px 16px 20px}
+.logo-wrap{width:80px;height:80px;margin:0 auto 14px;position:relative}
+.logo-border{
+  position:absolute;inset:0;border-radius:22px;padding:1.5px;
+  background:linear-gradient(135deg,var(--gold),var(--purple));
+  animation:lbPulse 3s ease-in-out infinite;
+}
+@keyframes lbPulse{
+  0%,100%{box-shadow:0 0 18px var(--gold-g),0 0 40px rgba(168,85,247,.12)}
+  50%{box-shadow:0 0 32px rgba(240,192,64,.45),0 0 70px rgba(168,85,247,.22)}
+}
+.logo-inner{
+  width:100%;height:100%;background:var(--bg);border-radius:21px;
+  display:flex;align-items:center;justify-content:center;font-size:34px;
+}
+.hero-title{
+  font-family:'Syne',sans-serif;font-size:24px;font-weight:800;
+  background:linear-gradient(135deg,var(--gold),#fff 50%,var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-size:200%;animation:hGrad 5s ease infinite alternate;
+}
+@keyframes hGrad{from{background-position:0%}to{background-position:100%}}
+.hero-sub{font-size:12px;color:var(--muted);margin-top:5px}
+.live-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:12px}
+.lpill{
+  display:flex;align-items:center;gap:5px;
+  background:var(--card);border:1px solid var(--border);
+  padding:4px 11px;border-radius:20px;font-size:11px;color:var(--muted);
+  font-family:'JetBrains Mono',monospace;
+}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0;animation:ldBlink 1.6s ease-in-out infinite}
+@keyframes ldBlink{0%,100%{opacity:1;box-shadow:0 0 5px var(--green)}50%{opacity:.2;box-shadow:none}}
+
+/* ── SECTION LABEL ── */
+.sec{
+  font-family:'Syne',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);
+  margin:24px 0 10px;display:flex;align-items:center;gap:8px;
+}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── PLAN CARDS ── */
+.plan-card{
+  position:relative;overflow:hidden;border-radius:var(--r);
+  border:1px solid var(--border);background:var(--card);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  padding:16px;cursor:pointer;margin-bottom:10px;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1),
+             box-shadow .22s ease,border-color .2s;
+  will-change:transform;
+}
+.plan-card:active{
+  transform:translateY(-5px) scale(1.015);
+  box-shadow:0 14px 40px rgba(240,192,64,.18),0 4px 16px rgba(0,0,0,.5);
+}
+/* shine on tap */
+.plan-card::after{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.06) 50%,transparent 70%);
+  transform:translateX(-100%);transition:transform .5s ease;
+}
+.plan-card:active::after{transform:translateX(100%)}
+.plan-card.popular{
+  border-color:rgba(240,192,64,.32);
+  box-shadow:0 0 28px rgba(240,192,64,.08);
+}
+.pop-badge{
+  position:absolute;top:10px;right:10px;
+  font-family:'Syne',sans-serif;font-size:9px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;background:linear-gradient(135deg,var(--gold),var(--gold2));
+  color:#000;padding:3px 9px;border-radius:20px;
+}
+.plan-row{display:flex;align-items:center;gap:12px}
+.plan-ico{
+  width:48px;height:48px;border-radius:13px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  border:1px solid rgba(255,255,255,.07);
+}
+.ic-c{background:rgba(0,212,255,.09)}
+.ic-g{background:rgba(240,192,64,.1)}
+.ic-p{background:rgba(168,85,247,.09)}
+.plan-info{flex:1}
+.plan-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:800}
+.plan-dur{font-size:11px;color:var(--muted);margin-top:2px}
+.plan-price{
+  font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--gold);
+  text-align:right;line-height:1;
+}
+.plan-price small{display:block;font-size:9px;font-weight:400;color:var(--muted);font-family:'Space Grotesk',sans-serif;margin-top:2px}
+.plan-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border)}
+.ptag{font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+/* ── PAYMENT PAGE ── */
+.pay-page .scroll-inner{padding:0 14px 40px}
+
+/* chip */
+.plan-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  background:rgba(240,192,64,.1);border:1px solid rgba(240,192,64,.22);
+  padding:6px 14px;border-radius:30px;
+  font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--gold);
+  margin-bottom:18px;
+}
+
+/* timer */
+.timer-box{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(255,51,85,.06);border:1px solid rgba(255,51,85,.16);
+  border-radius:13px;padding:11px 14px;margin-bottom:16px;
+  transition:background .3s,border-color .3s;
+}
+.timer-box.warn{background:rgba(255,51,85,.1);border-color:rgba(255,51,85,.35)}
+.timer-lbl{font-size:12px;color:var(--muted);flex:1}
+.timer-val{font-family:'Syne',sans-serif;font-size:19px;font-weight:900;color:var(--red);min-width:52px;text-align:right}
+.timer-val.tp{animation:tPulse .45s ease-in-out infinite alternate}
+@keyframes tPulse{from{opacity:1}to{opacity:.3}}
+
+/* amount */
+.amount-wrap{text-align:center;margin-bottom:20px}
+.amount-num{
+  font-family:'Syne',sans-serif;font-size:42px;font-weight:900;color:var(--gold);
+  animation:aGlow 3s ease-in-out infinite alternate;
+}
+@keyframes aGlow{from{text-shadow:0 0 20px rgba(240,192,64,.2)}to{text-shadow:0 0 45px rgba(240,192,64,.5)}}
+.amount-lbl{font-size:11px;color:var(--muted);letter-spacing:.8px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;margin-top:4px}
+
+/* qr */
+.qr-wrap{display:flex;flex-direction:column;align-items:center;margin-bottom:16px}
+.qr-loading{
+  width:190px;height:190px;border-radius:16px;background:rgba(255,255,255,.06);
+  display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+}
+.qr-loading::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.07),transparent);
+  background-size:200%;animation:skShimmer 1.4s ease-in-out infinite;
+}
+.qr-frame{
+  background:#fff;border-radius:16px;padding:14px;
+  box-shadow:0 0 50px rgba(240,192,64,.18);display:none;
+  animation:qFadeIn .4s ease both;
+}
+@keyframes qFadeIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+#qrcode canvas,#qrcode img{display:block!important;border-radius:4px}
+.qr-dl{
+  margin-top:10px;
+  background:rgba(240,192,64,.1);border:1px solid rgba(240,192,64,.2);
+  color:var(--gold);font-size:11px;font-weight:700;font-family:'Space Grotesk',sans-serif;
+  padding:7px 18px;border-radius:20px;cursor:pointer;
+  transition:all .18s;display:none;
+}
+.qr-dl.show{display:block}
+.qr-dl:active{transform:scale(.92)}
+
+/* upi row */
+.upi-row{
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,.04);border:1px solid var(--border);
+  border-radius:13px;padding:12px 14px;margin-bottom:11px;
+}
+.upi-lbl{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.8px;text-transform:uppercase;margin-bottom:3px}
+.upi-val{font-size:14px;font-weight:600;font-family:'JetBrains Mono',monospace}
+.copy-btn{
+  background:rgba(240,192,64,.11);border:1px solid rgba(240,192,64,.22);
+  color:var(--gold);font-size:12px;font-weight:700;
+  padding:8px 14px;border-radius:9px;cursor:pointer;white-space:nowrap;
+  transition:all .15s;
+}
+.copy-btn:active{transform:scale(.88);background:rgba(240,192,64,.22)}
+
+/* upi app */
+.upi-app-btn{
+  width:100%;padding:13px;border:none;border-radius:13px;
+  background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.2);
+  color:var(--cyan);font-size:13px;font-weight:700;font-family:'Space Grotesk',sans-serif;
+  cursor:pointer;margin-bottom:14px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all .18s;
+}
+.upi-app-btn:active{transform:scale(.97);background:rgba(0,212,255,.14)}
+
+.or-div{display:flex;align-items:center;gap:8px;margin:14px 0}
+.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:var(--border)}
+.or-div span{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px}
+
+/* utr */
+.utr-lbl{font-size:10px;color:var(--muted);display:block;margin-bottom:7px;font-family:'JetBrains Mono',monospace;letter-spacing:.8px;text-transform:uppercase}
+.utr-field{
+  width:100%;background:rgba(255,255,255,.05);
+  border:1.5px solid rgba(255,255,255,.09);
+  border-radius:13px;padding:14px 16px;
+  font-size:16px;color:var(--text);font-family:'JetBrains Mono',monospace;
+  outline:none;-webkit-appearance:none;letter-spacing:.8px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.utr-field::placeholder{color:rgba(238,240,255,.22);font-family:'Space Grotesk',sans-serif;letter-spacing:0;font-size:14px}
+.utr-field:focus{border-color:rgba(240,192,64,.42);box-shadow:0 0 0 3px rgba(240,192,64,.07)}
+
+/* ── BUTTONS ── */
+.btn{
+  width:100%;padding:16px;border:none;border-radius:14px;
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:800;
+  letter-spacing:.2px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  margin-top:10px;transition:transform .15s,box-shadow .18s,opacity .2s;
+  position:relative;overflow:hidden;
+}
+.btn:active{transform:scale(.96)}
+.btn-gold{
+  background:linear-gradient(135deg,#f5c840,#d4920c);
+  color:#000;box-shadow:0 4px 22px rgba(240,192,64,.3);
+}
+.btn-gold:active{box-shadow:0 2px 10px rgba(240,192,64,.18)}
+.btn-gold:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--muted)}
+.btn-ghost:active{background:rgba(255,255,255,.1)}
+
+/* loading spinner inside btn */
+.btn-spin{
+  width:18px;height:18px;border-radius:50%;
+  border:2px solid rgba(0,0,0,.3);border-top-color:#000;
+  animation:spin .7s linear infinite;display:none;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* status */
+.status-msg{text-align:center;margin-top:12px;font-size:13px;min-height:18px;color:var(--muted);transition:color .2s}
+.status-msg.ok{color:var(--green)}
+.status-msg.err{color:var(--red)}
+
+/* ── MY ORDERS PAGE ── */
+.order-card{
+  border-radius:var(--r);border:1px solid var(--border);background:var(--card);
+  padding:16px;margin-bottom:10px;
+  animation:fadeUp .4s ease both;
+}
+.order-card:nth-child(1){animation-delay:.05s}
+.order-card:nth-child(2){animation-delay:.1s}
+.order-card:nth-child(3){animation-delay:.15s}
+.oc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.oc-plan{font-family:'Syne',sans-serif;font-size:14px;font-weight:700}
+.oc-badge{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'Syne',sans-serif}
+.badge-pending{background:rgba(240,192,64,.12);border:1px solid rgba(240,192,64,.25);color:var(--gold)}
+.badge-approved{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.2);color:var(--green)}
+.badge-rejected{background:rgba(255,51,85,.1);border:1px solid rgba(255,51,85,.2);color:var(--red)}
+.oc-meta{font-size:12px;color:var(--muted);margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+.key-box{
+  background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.15);
+  border-radius:10px;padding:10px 12px;margin-top:8px;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.key-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green);word-break:break-all;flex:1}
+.key-copy{
+  background:rgba(0,255,136,.12);border:1px solid rgba(0,255,136,.2);
+  color:var(--green);font-size:11px;font-weight:700;padding:5px 10px;border-radius:7px;
+  cursor:pointer;flex-shrink:0;white-space:nowrap;transition:all .15s;
+}
+.key-copy:active{transform:scale(.88)}
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty-state .ei{font-size:40px;margin-bottom:12px}
+.empty-state p{font-size:14px}
+
+/* ── TERMS PAGE ── */
+.terms-body{font-size:13px;color:var(--muted);line-height:1.75;padding:4px 0}
+.terms-body h3{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--text);margin:20px 0 6px}
+.terms-body h3:first-child{margin-top:4px}
+.terms-body p{margin-bottom:10px}
+.terms-body ul{padding-left:18px;margin-bottom:10px}
+.terms-body li{margin-bottom:4px}
+
+/* ── MENU DRAWER ── */
+.drawer-overlay{
+  position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);
+  backdrop-filter:blur(6px);display:none;
+}
+.drawer-overlay.open{display:block;animation:dFadeIn .2s ease both}
+@keyframes dFadeIn{from{opacity:0}to{opacity:1}}
+.drawer{
+  position:absolute;top:0;right:0;bottom:0;width:72%;max-width:280px;
+  background:linear-gradient(160deg,#0c0f1e,#060810);
+  border-left:1px solid var(--border);
+  padding:0;display:flex;flex-direction:column;
+  animation:dSlideIn .28s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes dSlideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}
+.drawer-head{
+  padding:24px 20px 16px;
+  padding-top:calc(24px + env(safe-area-inset-top,0px));
+  border-bottom:1px solid var(--border);
+}
+.drawer-logo{font-size:26px;margin-bottom:6px}
+.drawer-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:800}
+.drawer-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.drawer-items{flex:1;padding:12px 0}
+.di{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 20px;cursor:pointer;
+  transition:background .15s;
+  font-size:14px;font-weight:600;
+}
+.di:active{background:rgba(255,255,255,.06)}
+.di-ic{width:36px;height:36px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.di-lbl{flex:1}
+.di-arr{color:var(--muted);font-size:12px}
+.drawer-foot{padding:16px 20px;padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border)}
+.drawer-support{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.16);
+  border-radius:12px;padding:12px 14px;text-decoration:none;
+  transition:background .15s;
+}
+.drawer-support:active{background:rgba(0,212,255,.12)}
+.drawer-support-ic{font-size:20px}
+.drawer-support-txt .sn{font-size:13px;font-weight:600;color:var(--text)}
+.drawer-support-txt .sh{font-size:11px;color:var(--cyan);font-family:'JetBrains Mono',monospace}
+
+/* ── SUCCESS OVERLAY ── */
+.success-overlay{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(4,5,15,.95);
+  flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:32px;
+}
+.success-overlay.show{display:flex;animation:fadeIn .4s ease both}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.succ-ring{
+  width:96px;height:96px;border-radius:50%;margin-bottom:24px;
+  background:linear-gradient(135deg,rgba(0,255,136,.14),rgba(0,212,255,.1));
+  border:1px solid rgba(0,255,136,.25);
+  display:flex;align-items:center;justify-content:center;font-size:42px;
+  box-shadow:0 0 50px rgba(0,255,136,.15);
+  animation:popIn .5s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.succ-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:900;margin-bottom:10px;
+  background:linear-gradient(135deg,var(--green),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.succ-body{font-size:13px;color:var(--muted);line-height:1.7;max-width:280px}
+.succ-order{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+  padding:7px 16px;border-radius:20px;
+  font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);
+  margin:16px 0;
+}
+.succ-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;animation:ldBlink 1.5s ease-in-out infinite}
+
+/* ── EXPIRED WALL ── */
+.expired-wall{
+  display:none;position:fixed;inset:0;z-index:300;
+  background:rgba(0,0,0,.9);backdrop-filter:blur(12px);
+  flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;text-align:center;padding:28px;
+}
+.expired-wall.show{display:flex}
+.ew-ic{font-size:52px}
+.ew-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:900;color:var(--red)}
+.ew-body{font-size:13px;color:var(--muted);max-width:260px;line-height:1.6}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-90px);
+  background:rgba(12,15,28,.97);border:1px solid rgba(255,255,255,.1);
+  backdrop-filter:blur(24px);padding:11px 22px;border-radius:30px;
+  font-size:13px;font-weight:600;z-index:500;pointer-events:none;
+  transition:transform .32s cubic-bezier(.16,1,.3,1);white-space:nowrap;
+}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(0,255,136,.28);color:var(--green)}
+.toast.err{border-color:rgba(255,51,85,.28);color:var(--red)}
+.toast.info{border-color:rgba(0,212,255,.25);color:var(--cyan)}
+
+
+/* ── GLASS CARD ── */
+.glass-card{
+  border-radius:var(--r);border:1px solid var(--border);
+  background:var(--card);backdrop-filter:blur(24px);
+  -webkit-backdrop-filter:blur(24px);padding:20px;
+}
+
+/* ── KEY RESULT ── */
+.key-result-box{
+  border-radius:13px;padding:14px 16px;
+  font-size:13px;line-height:1.65;
+}
+.key-result-box.ok{
+  background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.18);color:var(--green);
+}
+.key-result-box.err{
+  background:rgba(255,51,85,.06);border:1px solid rgba(255,51,85,.18);color:var(--red);
+}
+.key-result-box .kr-row{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.key-result-box .kr-row:last-child{border-bottom:none}
+.key-result-box .kr-lbl{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px}
+.key-result-box .kr-val{font-weight:600;text-align:right;font-size:12px}
+
+/* ── SUPPORT SHEET ── */
+.sheet-overlay{
+  display:none;position:fixed;inset:0;z-index:150;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(8px);
+  align-items:flex-end;justify-content:center;
+}
+.sheet-overlay.open{display:flex;animation:dFadeIn .2s ease both}
+.bottom-sheet{
+  width:100%;max-width:430px;
+  background:linear-gradient(160deg,#0d1020,#06080f);
+  border:1px solid var(--border);border-bottom:none;
+  border-radius:24px 24px 0 0;
+  padding:20px 18px calc(28px + env(safe-area-inset-bottom,0px));
+  animation:sheetUp .3s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);margin:0 auto 20px}
+
+.support-opt-btn{
+  display:flex;align-items:center;gap:12px;
+  border-radius:14px;padding:14px 16px;margin-bottom:10px;
+  text-decoration:none;cursor:pointer;
+  transition:opacity .15s,transform .15s;border:1px solid var(--border);
+}
+.support-opt-btn:active{opacity:.75;transform:scale(.98)}
+.support-opt-btn.tg{background:rgba(0,136,212,.08);border-color:rgba(0,136,212,.2)}
+.support-opt-btn.wa{background:rgba(37,211,102,.07);border-color:rgba(37,211,102,.18)}
+.sopt-ic{font-size:26px;flex-shrink:0}
+.sopt-info{flex:1}
+.sopt-name{font-weight:700;font-size:14px;color:var(--text)}
+.sopt-handle{font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.sopt-arr{font-size:18px;color:var(--muted)}
+
+/* ── RESET RESULT ── */
+.reset-result-box{
+  border-radius:13px;padding:14px 16px;font-size:13px;line-height:1.65;text-align:center;
+}
+.reset-result-box.ok{background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.18);color:var(--green)}
+.reset-result-box.err{background:rgba(255,51,85,.06);border:1px solid rgba(255,51,85,.18);color:var(--red)}
+
+/* ── MISC ── */
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+.anim{animation:fadeUp .5s cubic-bezier(.16,1,.3,1) both}
+.anim.d1{animation-delay:.07s}.anim.d2{animation-delay:.14s}.anim.d3{animation-delay:.21s}
+::-webkit-scrollbar{width:2px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 1 — HOME
+══════════════════════════════════════════ -->
+<div class="page active" id="pgHome">
+  <div class="topbar">
+    <div class="tb-title">OSINT Premium</div>
+    <div class="menu-btn" onclick="openMenu()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </div>
+  </div>
+
+  <div class="scroll-inner" id="homeContent">
+    <!-- SKELETON (shown while loading) -->
+    <div id="homeSkeleton">
+      <div class="sk sk-hero"></div>
+      <div class="sk sk-card"></div>
+      <div class="sk sk-card"></div>
+      <div class="sk sk-card"></div>
+    </div>
+
+    <!-- REAL CONTENT (hidden until ready) -->
+    <div id="homeReal" style="display:none">
+      <div class="hero anim">
+        <div class="logo-wrap">
+          <div class="logo-border"><div class="logo-inner">🔍</div></div>
+        </div>
+        <div class="hero-title">OSINT Premium</div>
+        <div class="hero-sub">All tools · Unlimited access · Instant delivery</div>
+        <div class="live-row">
+          <div class="lpill"><div class="ldot"></div>LIVE</div>
+          <div class="lpill">🔒 SECURE</div>
+          <div class="lpill">⚡ INSTANT</div>
+        </div>
+      </div>
+
+      <div class="sec anim d1">Choose Plan</div>
+
+      <div class="plan-card anim d1" onclick="goPayment('7days',7,149)">
+        <div class="plan-row">
+          <div class="plan-ico ic-c">⚡</div>
+          <div class="plan-info">
+            <div class="plan-name">STARTER</div>
+            <div class="plan-dur">7 Days Full Access</div>
+          </div>
+          <div class="plan-price">₹149<small>/ week</small></div>
+        </div>
+        <div class="plan-tags">
+          <span class="ptag">all_tools</span>
+          <span class="ptag">unlimited</span>
+          <span class="ptag">support</span>
+        </div>
+      </div>
+
+      <div class="plan-card popular anim d2" onclick="goPayment('30days',30,499)">
+        <div class="pop-badge">★ POPULAR</div>
+        <div class="plan-row">
+          <div class="plan-ico ic-g">💎</div>
+          <div class="plan-info">
+            <div class="plan-name">PRO</div>
+            <div class="plan-dur">30 Days Full Access</div>
+          </div>
+          <div class="plan-price">₹499<small>/ month</small></div>
+        </div>
+        <div class="plan-tags">
+          <span class="ptag">all_tools</span>
+          <span class="ptag">priority</span>
+          <span class="ptag">key_reset</span>
+          <span class="ptag">1_device</span>
+        </div>
+      </div>
+
+      <div class="plan-card anim d3" onclick="goPayment('90days',90,999)">
+        <div class="plan-row">
+          <div class="plan-ico ic-p">👑</div>
+          <div class="plan-info">
+            <div class="plan-name">ELITE</div>
+            <div class="plan-dur">90 Days Full Access</div>
+          </div>
+          <div class="plan-price">₹999<small>best value</small></div>
+        </div>
+        <div class="plan-tags">
+          <span class="ptag">everything</span>
+          <span class="ptag">vip_support</span>
+          <span class="ptag">3x_savings</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Support FAB — headphone -->
+  <div class="support-fab" onclick="openSupportSheet()" title="Support">🎧</div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 2 — PAYMENT
+══════════════════════════════════════════ -->
+<div class="page pay-page" id="pgPay">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="tb-back" onclick="goBack('pgHome')">←</div>
+      <div class="tb-title">Pay & Confirm</div>
+    </div>
+  </div>
+
+  <div class="scroll-inner">
+    <div class="plan-chip" id="payPlanChip">💎 PRO — 30 DAYS</div>
+
+    <div class="timer-box" id="timerBox">
+      <div style="font-size:16px;flex-shrink:0">⏱</div>
+      <div class="timer-lbl">Session expires in</div>
+      <div class="timer-val" id="timerVal">05:00</div>
+    </div>
+
+    <div class="amount-wrap">
+      <div class="amount-num" id="amtNum">₹499</div>
+      <div class="amount-lbl">Pay this exact amount</div>
+    </div>
+
+    <!-- QR with skeleton -->
+    <div class="qr-wrap">
+      <div class="qr-loading" id="qrLoading">
+        <div style="color:var(--muted);font-size:12px">Generating QR...</div>
+      </div>
+      <div class="qr-frame" id="qrFrame">
+        <div id="qrcode"></div>
+      </div>
+      <button class="qr-dl" id="qrDlBtn" onclick="downloadQR()">⬇️ Download QR</button>
+    </div>
+
+    <div class="upi-row">
+      <div>
+        <div class="upi-lbl">UPI ID</div>
+        <div class="upi-val">k.ajit@fam</div>
+      </div>
+      <button class="copy-btn" onclick="copyText('k.ajit@fam','✓ UPI ID copied!')">📋 Copy</button>
+    </div>
+
+    <button class="upi-app-btn" onclick="openUPIApp()">
+      📲 Open GPay / PhonePe / Paytm
+    </button>
+
+    <div class="or-div"><span>AFTER PAYMENT — ENTER UTR</span></div>
+
+    <span class="utr-lbl">Transaction ID / UTR Number</span>
+    <input class="utr-field" id="utrInput" type="text" inputmode="numeric"
+           placeholder="e.g. 423156789012" maxlength="30" autocomplete="off"/>
+
+    <button class="btn btn-gold" id="submitBtn" onclick="submitUTR()">
+      <div class="btn-spin" id="submitSpin"></div>
+      <span id="submitTxt">✅ Submit UTR & Confirm</span>
+    </button>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 3 — MY ORDERS
+══════════════════════════════════════════ -->
+<div class="page" id="pgOrders">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="tb-back" onclick="goBack('pgHome')">←</div>
+      <div class="tb-title">My Orders</div>
+    </div>
+  </div>
+  <div class="scroll-inner" id="ordersContent">
+    <!-- filled by JS -->
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PAGE 4 — TERMS
+══════════════════════════════════════════ -->
+<div class="page" id="pgTerms">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="tb-back" onclick="goBack('pgHome')">←</div>
+      <div class="tb-title">Terms & Conditions</div>
+    </div>
+  </div>
+  <div class="scroll-inner">
+    <div class="terms-body">
+      <h3>1. Service Overview</h3>
+      <p>OSINT Premium provides access to OSINT (Open Source Intelligence) tools for informational and educational purposes only. Premium keys grant access for the purchased duration.</p>
+
+      <h3>2. Payment Policy</h3>
+      <p>All payments are processed via UPI. Once a UTR (transaction ID) is submitted, admin manually verifies the payment. Approval typically takes within a few hours.</p>
+      <ul>
+        <li>Pay the exact amount shown — no more, no less.</li>
+        <li>Submit your correct UTR after payment.</li>
+        <li>Duplicate or fraudulent UTR submissions will result in a ban.</li>
+      </ul>
+
+      <h3>3. Refund Policy</h3>
+      <p>All sales are final. No refunds once a Premium Key is delivered. If payment is rejected, your money is not deducted — UPI rejections are instant.</p>
+
+      <h3>4. Key Usage</h3>
+      <ul>
+        <li>Each key is valid on 1 device at a time.</li>
+        <li>Device reset is allowed once every 24 hours.</li>
+        <li>Keys cannot be transferred or resold.</li>
+        <li>Sharing keys will result in permanent ban.</li>
+      </ul>
+
+      <h3>5. Prohibited Use</h3>
+      <p>You agree not to use this service for any illegal, harmful, or unauthorized activity. Misuse will result in immediate key revocation without refund.</p>
+
+      <h3>6. Support</h3>
+      <p>For any issues, contact us at <a href="https://t.me/LuffyThe_CARDER" style="color:var(--cyan)">@LuffyThe_CARDER</a> on Telegram.</p>
+
+      <h3>7. Changes</h3>
+      <p>We reserve the right to modify these terms at any time. Continued use of the service implies acceptance of updated terms.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     DRAWER MENU
+══════════════════════════════════════════ -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeMenu()">
+  <div class="drawer" onclick="event.stopPropagation()">
+    <div class="drawer-head">
+      <div class="drawer-logo">🔍</div>
+      <div class="drawer-name">OSINT Premium</div>
+      <div class="drawer-sub">Unlimited tools & access</div>
+    </div>
+    <div class="drawer-items">
+      <div class="di" onclick="menuNav('pgHome')">
+        <div class="di-ic">🏠</div><div class="di-lbl">Home</div><div class="di-arr">›</div>
+      </div>
+      <div class="di" onclick="menuNav('pgOrders')">
+        <div class="di-ic">📋</div><div class="di-lbl">My Orders</div><div class="di-arr">›</div>
+      </div>
+      <div class="di" onclick="menuNav('pgCheckKey')">
+        <div class="di-ic">🔑</div><div class="di-lbl">Check Key</div><div class="di-arr">›</div>
+      </div>
+      <div class="di" onclick="menuNav('pgResetDevice')">
+        <div class="di-ic">📱</div><div class="di-lbl">Reset Device</div><div class="di-arr">›</div>
+      </div>
+      <div class="di" onclick="menuNav('pgTerms')">
+        <div class="di-ic">📄</div><div class="di-lbl">Terms & Conditions</div><div class="di-arr">›</div>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <a class="drawer-support" href="https://t.me/LuffyThe_CARDER" target="_blank">
+        <div class="drawer-support-ic">💬</div>
+        <div class="drawer-support-txt">
+          <div class="sn">Contact Support</div>
+          <div class="sh">@LuffyThe_CARDER</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS OVERLAY -->
+<div class="success-overlay" id="successOverlay">
+  <div class="succ-ring">🎉</div>
+  <div class="succ-title">ORDER PLACED!</div>
+  <div class="succ-body">Payment submitted for review.<br/>Admin will verify & send your Premium Key.</div>
+  <div class="succ-order">
+    <span class="succ-dot"></span>
+    <span id="succOrderTxt">Order: ...</span>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:22px">Key arrives in your bot chat</div>
+  <button class="btn btn-gold" style="max-width:300px" onclick="closeSuccess()">← Back to Home</button>
+  <a href="https://t.me/LuffyThe_CARDER" target="_blank" style="display:block;max-width:300px;width:100%;margin-top:8px">
+    <button class="btn btn-ghost" style="width:100%">💬 Contact Support</button>
+  </a>
+</div>
+
+<!-- EXPIRED WALL -->
+<div class="expired-wall" id="expiredWall">
+  <div class="ew-ic">⏰</div>
+  <div class="ew-title">SESSION EXPIRED</div>
+  <div class="ew-body">Your payment window closed. Select a plan again to restart.</div>
+  <button class="btn btn-gold" style="max-width:220px;margin-top:8px" onclick="resetExpired()">Try Again</button>
+</div>
+
+<!-- ══════════════════════════════════════════ SCRIPT ══ -->
+
+<!-- PAGE 5 — CHECK KEY -->
+<div class="page" id="pgCheckKey">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="tb-back" onclick="goBack('pgHome')">←</div>
+      <div class="tb-title">Check Key</div>
+    </div>
+  </div>
+  <div class="scroll-inner">
+    <div class="sec">Enter Your Key</div>
+    <div class="glass-card anim">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">Paste your Premium Key below to check validity, expiry date, and device status.</p>
+      <input class="utr-field" id="checkKeyInput" type="text" placeholder="OSINT-XXXXXXXX-XXXXXXXX" autocomplete="off" style="letter-spacing:.5px"/>
+      <button class="btn btn-gold" style="margin-top:12px" onclick="doCheckKey()">🔍 Check Key</button>
+      <div id="checkKeyResult" style="margin-top:14px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 6 — RESET DEVICE -->
+<div class="page" id="pgResetDevice">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="tb-back" onclick="goBack('pgHome')">←</div>
+      <div class="tb-title">Reset Device</div>
+    </div>
+  </div>
+  <div class="scroll-inner">
+    <div class="sec">Unlink Device</div>
+    <div class="glass-card anim">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:40px;margin-bottom:8px">📱</div>
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:6px">Switch to a New Device?</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">Enter your key below to unlink it from the current device. Allowed once every 24 hours.</div>
+      </div>
+      <input class="utr-field" id="resetKeyInput" type="text" placeholder="OSINT-XXXXXXXX-XXXXXXXX" autocomplete="off" style="letter-spacing:.5px"/>
+      <button class="btn btn-gold" style="margin-top:12px" onclick="doResetDevice()">
+        <span id="resetTxt">🔓 Reset Device</span>
+      </button>
+      <div id="resetResult" style="margin-top:14px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SUPPORT BOTTOM SHEET -->
+<div class="sheet-overlay" id="supportSheetOverlay" onclick="closeSupportSheet()">
+  <div class="bottom-sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:36px;margin-bottom:6px">🎧</div>
+      <div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800">Contact Support</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Reach us on your preferred platform</div>
+    </div>
+    <a href="https://t.me/LuffyThe_CARDER" target="_blank" class="support-opt-btn tg" onclick="closeSupportSheet()">
+      <div class="sopt-ic">✈️</div>
+      <div class="sopt-info">
+        <div class="sopt-name">Telegram</div>
+        <div class="sopt-handle">@LuffyThe_CARDER</div>
+      </div>
+      <div class="sopt-arr">›</div>
+    </a>
+    <a href="https://wa.me/message/LuffyThe_CARDER" target="_blank" class="support-opt-btn wa" onclick="closeSupportSheet()">
+      <div class="sopt-ic">💬</div>
+      <div class="sopt-info">
+        <div class="sopt-name">WhatsApp</div>
+        <div class="sopt-handle">Send Message</div>
+      </div>
+      <div class="sopt-arr">›</div>
+    </a>
+    <button class="btn btn-ghost" style="margin-top:8px" onclick="closeSupportSheet()">Close</button>
+  </div>
+</div>
+
+<script>
+/* ── TG ── */
+const tg = window.Telegram?.WebApp;
+if(tg){tg.ready();tg.expand();tg.setHeaderColor('#04050f');tg.setBackgroundColor('#04050f')}
+
+/* ── CONFIG ── */
+const BOT_TOKEN = '8879874600:AAFzl5zi3celnSPKluQUooNQJzATAUH_ax0';
+const ADMIN_ID  = '5313604885';
+const UPI_ID    = 'k.ajit@fam';
+
+/* ── STORAGE ── */
+const LS_KEY = 'osint_orders_v1';
+function getOrders(){try{return JSON.parse(localStorage.getItem(LS_KEY)||'[]')}catch{return[]}}
+function saveOrder(o){const a=getOrders();a.unshift(o);localStorage.setItem(LS_KEY,JSON.stringify(a.slice(0,20)))}
+
+/* ── STATE ── */
+let currentPlan=null,timerInterval=null,timeLeft=300,currentOID=null,activePage='pgHome';
+
+/* ── SKELETON → real content after tiny delay ── */
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    document.getElementById('homeSkeleton').style.display='none';
+    const real=document.getElementById('homeReal');
+    real.style.display='block';
+    real.style.animation='fadeUp .45s ease both';
+  }, 600);
+});
+
+/* ── TOAST ── */
+function toast(msg,type='info'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className=`toast ${type} show`;
+  clearTimeout(el._t);el._t=setTimeout(()=>{el.className='toast'},2800);
+}
+
+/* ── PAGE NAV ── */
+function showPage(id,dir='fwd'){
+  const prev=document.querySelector('.page.active');
+  const next=document.getElementById(id);
+  if(!next||prev===next)return;
+
+  if(prev){
+    prev.classList.remove('active');
+    if(dir==='fwd'){prev.classList.add('page-exit');setTimeout(()=>prev.classList.remove('page-exit'),280);}
+  }
+  next.classList.add('active');
+  next.classList.add(dir==='fwd'?'page-enter':'page-enter-back');
+  next.scrollTop=0;
+  setTimeout(()=>next.classList.remove('page-enter','page-enter-back'),350);
+  activePage=id;
+}
+
+function goBack(to){
+  stopTimer();
+  showPage(to,'back');
+  tg?.HapticFeedback?.impactOccurred('light');
+}
+
+/* ── MENU DRAWER ── */
+function openMenu(){document.getElementById('drawerOverlay').classList.add('open');tg?.HapticFeedback?.impactOccurred('light')}
+function closeMenu(){document.getElementById('drawerOverlay').classList.remove('open')}
+function menuNav(pg){
+  closeMenu();
+  setTimeout(()=>{
+    if(pg==='pgOrders') renderOrders();
+    if(pg==='pgCheckKey'){document.getElementById('checkKeyResult').innerHTML='';document.getElementById('checkKeyInput').value='';}
+    if(pg==='pgResetDevice'){document.getElementById('resetResult').innerHTML='';document.getElementById('resetKeyInput').value='';}
+    showPage(pg,'fwd');
+  },180);
+}
+
+/* ── COPY ── */
+function copyText(txt,msg){
+  const ok=()=>{toast(msg,'ok');tg?.HapticFeedback?.notificationOccurred('success')}
+  if(navigator.clipboard&&window.isSecureContext){
+    navigator.clipboard.writeText(txt).then(ok).catch(()=>legacyCopy(txt,ok));
+  }else legacyCopy(txt,ok);
+}
+function legacyCopy(txt,cb){
+  const ta=document.createElement('textarea');
+  ta.value=txt;ta.style.cssText='position:fixed;top:-9999px;left:-9999px;opacity:0';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');cb();}catch{toast('❌ Copy failed','err')}
+  document.body.removeChild(ta);
+}
+
+/* ── QR ── */
+function buildQR(price,oid){
+  const upiStr=`upi://pay?pa=${UPI_ID}&pn=OSINT+Bot&am=${price}&cu=INR&tn=OSINT-${oid.slice(0,8)}`;
+  document.getElementById('qrcode').innerHTML='';
+  try{
+    new QRCode(document.getElementById('qrcode'),{text:upiStr,width:190,height:190,correctLevel:QRCode.CorrectLevel.M});
+    setTimeout(()=>{
+      document.getElementById('qrLoading').style.display='none';
+      document.getElementById('qrFrame').style.display='block';
+      document.getElementById('qrDlBtn').classList.add('show');
+    },400);
+  }catch(e){
+    document.getElementById('qrLoading').innerHTML='<div style="color:var(--muted);font-size:11px;padding:10px;text-align:center">QR unavailable<br>Use UPI ID above</div>';
+  }
+}
+
+function downloadQR(){
+  const canvas=document.querySelector('#qrcode canvas');
+  if(!canvas){toast('❌ QR not ready','err');return}
+  const a=document.createElement('a');
+  a.download=`OSINT-QR-₹${currentPlan?.price||''}.png`;
+  a.href=canvas.toDataURL('image/png');a.click();
+  toast('✓ QR saved!','ok');
+  tg?.HapticFeedback?.impactOccurred('light');
+}
+
+/* ── UPI APP ── */
+function openUPIApp(){
+  if(!currentPlan)return;
+  const lnk=`upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=OSINT+Bot+Premium&am=${currentPlan.price}&cu=INR&tn=OSINT-${(currentOID||'').slice(0,8)}`;
+  tg?.HapticFeedback?.impactOccurred('medium');
+  window.location.href=lnk;
+}
+
+/* ── TIMER ── */
+function startTimer(){
+  clearInterval(timerInterval);timeLeft=300;renderTimer();
+  timerInterval=setInterval(()=>{
+    timeLeft--;renderTimer();
+    if(timeLeft<=0){clearInterval(timerInterval);closePay();document.getElementById('expiredWall').classList.add('show')}
+  },1000);
+}
+function stopTimer(){clearInterval(timerInterval)}
+function renderTimer(){
+  const m=Math.floor(timeLeft/60).toString().padStart(2,'0');
+  const s=(timeLeft%60).toString().padStart(2,'0');
+  const el=document.getElementById('timerVal');
+  const box=document.getElementById('timerBox');
+  el.textContent=`${m}:${s}`;
+  const u=timeLeft<=60;
+  el.className='timer-val'+(u?' tp':'');
+  box.className='timer-box'+(u?' warn':'');
+  if(u&&timeLeft%2===0&&timeLeft>0)tg?.HapticFeedback?.impactOccurred('light');
+}
+
+/* ── GO TO PAYMENT ── */
+function goPayment(plan,days,price){
+  currentPlan={plan,days,price};
+  currentOID='ORD'+Date.now().toString(36).toUpperCase()+'_'+Math.random().toString(36).substr(2,5).toUpperCase();
+
+  const names={'7days':'⚡ STARTER — 7 DAYS','30days':'💎 PRO — 30 DAYS','90days':'👑 ELITE — 90 DAYS'};
+  document.getElementById('payPlanChip').textContent=names[plan]||plan;
+  document.getElementById('amtNum').textContent='₹'+price;
+  document.getElementById('utrInput').value='';
+  setStatus('','');
+  document.getElementById('submitBtn').disabled=false;
+  document.getElementById('submitTxt').textContent='✅ Submit UTR & Confirm';
+  document.getElementById('submitSpin').style.display='none';
+
+  // reset QR
+  document.getElementById('qrLoading').style.display='flex';
+  document.getElementById('qrFrame').style.display='none';
+  document.getElementById('qrDlBtn').classList.remove('show');
+
+  showPage('pgPay','fwd');
+  tg?.HapticFeedback?.impactOccurred('medium');
+
+  // build QR after page animates in
+  setTimeout(()=>buildQR(price,currentOID),350);
+  startTimer();
+}
+
+function closePay(){
+  stopTimer();
+  showPage('pgHome','back');
+}
+
+/* ── STATUS ── */
+function setStatus(msg,type){
+  const el=document.getElementById('statusMsg');
+  el.textContent=msg;el.className='status-msg'+(type?' '+type:'');
+}
+
+/* ── SUBMIT UTR ── */
+async function submitUTR(){
+  const utr=document.getElementById('utrInput').value.trim();
+  if(!utr||utr.length<6){
+    setStatus('❌ Enter valid UTR (min 6 digits)','err');
+    tg?.HapticFeedback?.notificationOccurred('error');
+    return;
+  }
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;
+  document.getElementById('submitTxt').textContent='Submitting...';
+  document.getElementById('submitSpin').style.display='block';
+  setStatus('','');
+  tg?.HapticFeedback?.impactOccurred('heavy');
+  stopTimer();
+
+  const uid=String(tg?.initDataUnsafe?.user?.id||0);
+  const oid=currentOID;
+  const p=currentPlan;
+  const apiUrl=`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
+  const userMsg=`/submit_order\nPlan: ${p.plan}\nDays: ${p.days}\nPrice: ${p.price}\nUTR: ${utr}\nOrderID: ${oid}\nUserID: ${uid}`;
+  const adminMsg=`💰 <b>NEW ORDER — Mini App</b>\n\n👤 User: <code>${uid}</code>\n📦 Plan: ${p.plan}\n💰 Amount: ₹${p.price}\n🔢 UTR: <code>${utr}</code>\n🆔 Order: <code>${oid}</code>`;
+
+  try{
+    const [r1]=await Promise.all([
+      fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({chat_id:uid,text:userMsg,parse_mode:'HTML'})}),
+      fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({chat_id:ADMIN_ID,text:adminMsg,parse_mode:'HTML',
+          reply_markup:JSON.stringify({inline_keyboard:[[
+            {text:'✅ APPROVE',callback_data:`approve_${oid}`},
+            {text:'❌ REJECT',callback_data:`reject_${oid}`}
+          ]]})})})
+    ]);
+    const d=await r1.json();
+    if(d.ok){
+      // save locally
+      saveOrder({oid,plan:p.plan,price:p.price,utr,status:'pending',ts:Date.now(),key:null});
+      closePay();
+      document.getElementById('succOrderTxt').textContent='Order: '+oid;
+      document.getElementById('successOverlay').classList.add('show');
+      tg?.HapticFeedback?.notificationOccurred('success');
+    }else{
+      setStatus('❌ Failed. Please try again.','err');
+      btn.disabled=false;
+      document.getElementById('submitTxt').textContent='✅ Submit UTR & Confirm';
+      document.getElementById('submitSpin').style.display='none';
+      startTimer();
+    }
+  }catch(err){
+    setStatus('❌ Network error. Check connection.','err');
+    btn.disabled=false;
+    document.getElementById('submitTxt').textContent='✅ Submit UTR & Confirm';
+    document.getElementById('submitSpin').style.display='none';
+    startTimer();
+  }
+}
+
+/* ── SUCCESS ── */
+function closeSuccess(){
+  document.getElementById('successOverlay').classList.remove('show');
+  showPage('pgHome','back');
+}
+
+/* ── EXPIRED ── */
+function resetExpired(){
+  document.getElementById('expiredWall').classList.remove('show');
+}
+
+/* ── MY ORDERS ── */
+function renderOrders(){
+  const orders=getOrders();
+  const el=document.getElementById('ordersContent');
+  if(!orders.length){
+    el.innerHTML=`<div class="empty-state"><div class="ei">📭</div><p>No orders yet.<br/>Purchase a plan to get started!</p></div>`;
+    return;
+  }
+  el.innerHTML=orders.map((o,i)=>{
+    const dt=new Date(o.ts).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    const bClass={'pending':'badge-pending','approved':'badge-approved','rejected':'badge-rejected'}[o.status]||'badge-pending';
+    const bTxt={'pending':'⏳ Pending','approved':'✅ Approved','rejected':'❌ Rejected'}[o.status]||'Pending';
+    const keySection=o.status==='approved'&&o.key?`
+      <div class="key-box">
+        <div class="key-val">${o.key}</div>
+        <button class="key-copy" onclick="copyText('${o.key}','✓ Key copied!')">Copy</button>
+      </div>
+    `:'';
+    return`<div class="order-card" style="animation-delay:${i*0.07}s">
+      <div class="oc-top">
+        <div class="oc-plan">${o.plan||'Unknown Plan'}</div>
+        <span class="oc-badge ${bClass}">${bTxt}</span>
+      </div>
+      <div class="oc-meta">₹${o.price} · ${dt}</div>
+      <div class="oc-meta">UTR: ${o.utr||'—'}</div>
+      ${keySection}
+    </div>`;
+  }).join('');
+}
+
+
+/* ── SUPPORT SHEET ── */
+function openSupportSheet(){
+  document.getElementById('supportSheetOverlay').classList.add('open');
+  tg?.HapticFeedback?.impactOccurred('light');
+}
+function closeSupportSheet(){
+  document.getElementById('supportSheetOverlay').classList.remove('open');
+}
+
+/* ── CHECK KEY ── */
+async function doCheckKey(){
+  const key = document.getElementById('checkKeyInput').value.trim();
+  const res = document.getElementById('checkKeyResult');
+  if(!key){ res.innerHTML='<div class="key-result-box err">❌ Please enter a key</div>'; return; }
+
+  res.innerHTML='<div class="key-result-box" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);text-align:center">⏳ Checking...</div>';
+  tg?.HapticFeedback?.impactOccurred('medium');
+
+  // Check against local orders first
+  const orders = getOrders();
+  const match = orders.find(o => o.key === key);
+
+  if(match){
+    const dt = new Date(match.ts);
+    const exp = new Date(match.ts + match.days*24*60*60*1000);
+    const expStr = exp.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    const now = new Date();
+    const isExpired = now > exp;
+    res.innerHTML = `<div class="key-result-box ${isExpired?'err':'ok'}">
+      <div class="kr-row"><span class="kr-lbl">STATUS</span><span class="kr-val">${isExpired?'❌ Expired':'✅ Active'}</span></div>
+      <div class="kr-row"><span class="kr-lbl">PLAN</span><span class="kr-val">${match.plan||'—'}</span></div>
+      <div class="kr-row"><span class="kr-lbl">EXPIRES</span><span class="kr-val">${expStr}</span></div>
+      <div class="kr-row"><span class="kr-lbl">AMOUNT</span><span class="kr-val">₹${match.price||'—'}</span></div>
+    </div>`;
+  } else {
+    // Try asking bot via sendData
+    res.innerHTML = `<div class="key-result-box err">
+      ❌ Key not found in local records.<br/>
+      <span style="font-size:11px;color:var(--muted);display:block;margin-top:6px">
+      Redeem via main bot: /checkkey ${key}</span>
+    </div>`;
+  }
+  tg?.HapticFeedback?.notificationOccurred('success');
+}
+
+/* ── RESET DEVICE ── */
+async function doResetDevice(){
+  const key = document.getElementById('resetKeyInput').value.trim();
+  const res = document.getElementById('resetResult');
+  if(!key){ res.innerHTML='<div class="reset-result-box err">❌ Please enter your key</div>'; return; }
+
+  const btn = document.getElementById('resetTxt');
+  btn.textContent='⏳ Resetting...';
+  tg?.HapticFeedback?.impactOccurred('heavy');
+
+  // Check cooldown in localStorage
+  const cdKey = 'reset_cd_' + key;
+  const lastReset = localStorage.getItem(cdKey);
+  if(lastReset){
+    const diff = Date.now() - parseInt(lastReset);
+    const cdMs = 24*60*60*1000;
+    if(diff < cdMs){
+      const rem = cdMs - diff;
+      const hrs = Math.floor(rem/3600000);
+      const mins = Math.floor((rem%3600000)/60000);
+      res.innerHTML = `<div class="reset-result-box err">⏳ Cooldown active!<br/><span style="font-size:12px">${hrs}h ${mins}m baad dobara reset kar sakte ho.</span></div>`;
+      btn.textContent='🔓 Reset Device';
+      return;
+    }
+  }
+
+  // Send reset request to bot
+  const uid = String(tg?.initDataUnsafe?.user?.id||0);
+  const apiUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  try{
+    const r = await fetch(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({chat_id:uid,text:`/resetdevice ${key}`,parse_mode:'HTML'})});
+    const d = await r.json();
+    if(d.ok){
+      localStorage.setItem(cdKey, Date.now().toString());
+      res.innerHTML='<div class="reset-result-box ok">✅ Reset request sent!<br/><span style="font-size:12px">Bot will confirm in chat. Key unlinked from old device.</span></div>';
+      tg?.HapticFeedback?.notificationOccurred('success');
+    }else{
+      res.innerHTML='<div class="reset-result-box err">❌ Failed. Make sure key is correct.</div>';
+    }
+  }catch(e){
+    res.innerHTML='<div class="reset-result-box err">❌ Network error. Try again.</div>';
+  }
+  btn.textContent='🔓 Reset Device';
+}
+
+/* ── MENU NAV EXTENDED ── */
+const _origMenuNav = menuNav;
+
+/* ── UTR ENTER KEY ── */
+document.getElementById('utrInput').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submitUTR()}});
+</script>
+</body>
+</html>
